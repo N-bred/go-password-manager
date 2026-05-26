@@ -7,6 +7,7 @@ import (
 )
 
 type Credential struct {
+	Id       int
 	Domain   string
 	Username string
 	Password string
