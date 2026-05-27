@@ -2,17 +2,20 @@
   import type {CredentialHistory} from '../App.svelte';
 
   type props = {
-    selectedHistoryForId: String;
-    credentialsHistory: CredentialHistory[]
+    selectedHistoryForId: string;
+    credentialsHistory: CredentialHistory[];
+    onClose?: () => void;
   }
 
-  let {selectedHistoryForId, credentialsHistory}: props = $props();
-
+  let {selectedHistoryForId, credentialsHistory, onClose = () => {}}: props = $props();
 </script>
 
 <section class="history-panel">
   <header class="history-header">
     <h2>History for {selectedHistoryForId}</h2>
+    <button type="button" class="close-button" onclick={onClose} title="Hide history" aria-label="Hide history">
+      Hide
+    </button>
   </header>
   <div class="table-wrap history-table">
     <table>
@@ -24,13 +27,19 @@
         </tr>
       </thead>
       <tbody>
-        {#each credentialsHistory as entry}
-          <tr>
-            <td>{entry.id}</td>
-            <td>{entry.value}</td>
-            <td>{entry.created_at}</td>
+        {#if credentialsHistory.length > 0}
+          {#each credentialsHistory as entry}
+            <tr>
+              <td>{entry.id}</td>
+              <td>{entry.value}</td>
+              <td>{entry.created_at}</td>
+            </tr>
+          {/each}
+        {:else}
+          <tr class="empty-row">
+            <td colspan="3">No history entries for this credential.</td>
           </tr>
-        {/each}
+        {/if}
       </tbody>
     </table>
   </div>
@@ -39,10 +48,14 @@
 <style>
   .history-panel {
     border-top: 1px solid #2eff6e3b;
-    background: #051109b0;
+    background: #051109f0;
   }
 
   .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
     padding: 0.9rem 1.4rem 0.65rem;
   }
 
@@ -58,8 +71,26 @@
     overflow-x: auto;
   }
 
+  .close-button {
+    border: 1px solid #58ff8752;
+    border-radius: 8px;
+    padding: 0.38rem 0.64rem;
+    background: #0a1910;
+    color: #95ffbb;
+    font-size: 0.82rem;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .close-button:hover {
+    color: #dcffea;
+    border-color: #72ffa5;
+    box-shadow: 0 0 10px #4dff8152;
+  }
+
   .history-table {
-    max-height: 230px;
+    height: 152px;
     overflow-y: auto;
     border-top: 1px solid #2eff6e24;
   }
@@ -108,5 +139,10 @@
 
   tbody tr:hover {
     background: #0f2d1b4f;
+  }
+
+  .empty-row td {
+    color: #79ff9acc;
+    font-style: italic;
   }
 </style>

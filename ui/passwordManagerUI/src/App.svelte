@@ -1,5 +1,5 @@
 <script module>
-  type CredentialRowReq = {
+  export type CredentialRowReq = {
     id: number;
     domain: string;
     username: string;
@@ -29,11 +29,50 @@
   import { onMount } from 'svelte';
   import CredentialTable from './lib/CredentialTable.svelte';
   import HistoryTable from './lib/HistoryTable.svelte';
+  import AddCredentialModal from './lib/AddCredentialModal.svelte';
+  import Toast from './lib/Toast.svelte';
 
   let credentials = $state<CredentialRow[]>([]);
   let credentialsHistory = $state<CredentialHistory[]>([]);
   let selectedHistoryForId = $state("");
   let updateSuccess = $state(false);
+  let createSuccess = $state(false);
+  let createNotify = $state(0);
+  let updateNotify = $state(0);
+  let showAddModal = $state(false);
+  let isCreating = $state(false);
+  let toastVisible = $state(false);
+  let toastMessage = $state('');
+  let toastVariant = $state<'success' | 'error'>('success');
+
+  let toastTimeout: ReturnType<typeof setTimeout> | undefined;
+  let domainSearch = $state('');
+
+  const fuzzyMatchDomain = (query: string, domain: string) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+
+    const d = domain.toLowerCase();
+    let qi = 0;
+    for (let i = 0; i < d.length && qi < q.length; i++) {
+      if (d[i] === q[qi]) qi++;
+    }
+    return qi === q.length;
+  };
+
+  const filteredCredentials = $derived(
+    credentials.filter((c) => fuzzyMatchDomain(domainSearch, c.domain))
+  );
+
+  const showToast = (message: string, variant: 'success' | 'error') => {
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastMessage = message;
+    toastVariant = variant;
+    toastVisible = true;
+    toastTimeout = setTimeout(() => {
+      toastVisible = false;
+    }, 3200);
+  };
 
   async function getCredentials() {
     const req = await fetch("http://localhost:3000/credentials")
@@ -58,10 +97,33 @@
 
     if (res.error) {
       updateSuccess = false;
-      console.error(res.error)
-    } 
+      updateNotify++;
+      console.error(res.error);
+      return;
+    }
 
     updateSuccess = true;
+    updateNotify++;
+  }
+
+  async function createCredential(c: CredentialRowReq) {
+    const req = await fetch(`http://localhost:3000/credential/create`, {
+      method: "POST",
+      headers: {"Content-Type": "Application/json"},
+      body: JSON.stringify(c)
+    });
+
+    const res = await req.json();
+
+    if (res.error) {
+      createSuccess = false;
+      createNotify++;
+      console.error(res.error);
+      return;
+    }
+
+    createSuccess = true;
+    createNotify++;
   }
 
   onMount(async () => {
@@ -69,12 +131,37 @@
   })
 
   $effect(() => {
-    if (updateSuccess === true) {
-      console.log("Succesfully Updated!")
+    const notified = updateNotify;
+    if (notified === 0) return;
+
+    if (updateSuccess) {
+      showToast('Credential updated successfully', 'success');
     } else {
-      console.log("Something went wrong at updating")
+      showToast('Failed to update credential', 'error');
     }
-  })
+  });
+
+  $effect(() => {
+    const notified = createNotify;
+    if (notified === 0) return;
+
+    if (createSuccess) {
+      showToast('Credential created successfully', 'success');
+    } else {
+      showToast('Failed to create credential', 'error');
+    }
+  });
+
+  const handleAddCredential = async (credential: CredentialRowReq) => {
+    isCreating = true;
+    await createCredential(credential);
+    isCreating = false;
+
+    if (!createSuccess) return;
+
+    await getCredentials();
+    showAddModal = false;
+  };
 
   const toggleEditOrSave = async (id: number) => {
     const row = credentials.find(c => c.id === id);
@@ -106,19 +193,19 @@
     }
   };
 
+  const closeHistory = () => {
+    selectedHistoryForId = '';
+    credentialsHistory = [];
+  };
+
   const toggleHistory = async (id: number) => {
-    await getHistoryById(id);
-
-    if (credentialsHistory.length < 1) return;
-
-
     if (selectedHistoryForId === String(id)) {
-      selectedHistoryForId = '';
-      credentialsHistory = [];
+      closeHistory();
       return;
     }
 
     selectedHistoryForId = String(id);
+    await getHistoryById(id);
   };
 </script>
 
@@ -129,11 +216,22 @@
         <p class="eyebrow">Secure Matrix Vault</p>
         <h1>Password Manager</h1>
       </div>
-      <button type="button" class="add-button">+ Add credential</button>
+      <div class="header-actions">
+        <input
+          class="search-field"
+          type="search"
+          bind:value={domainSearch}
+          placeholder="Search domain…"
+          aria-label="Search credentials by domain"
+        />
+        <button type="button" class="add-button" onclick={() => (showAddModal = true)}>
+          + Add credential
+        </button>
+      </div>
     </header>
 
     <CredentialTable
-      {credentials}
+      credentials={filteredCredentials}
       activeHistoryId={selectedHistoryForId}
       onToggleEditOrSave={toggleEditOrSave}
       onCopyPassword={copyPassword}
@@ -141,10 +239,19 @@
     />
 
     {#if selectedHistoryForId}
-      <HistoryTable {selectedHistoryForId} {credentialsHistory} />
+      <HistoryTable {selectedHistoryForId} {credentialsHistory} onClose={closeHistory} />
     {/if}
   </section>
 </main>
+
+<AddCredentialModal
+  open={showAddModal}
+  submitting={isCreating}
+  onClose={() => (showAddModal = false)}
+  onSubmit={handleAddCredential}
+/>
+
+<Toast message={toastMessage} variant={toastVariant} visible={toastVisible} />
 
 <style>
   .page {
@@ -195,6 +302,36 @@
     text-shadow: 0 0 10px #4bff8a52;
   }
 
+  .header-actions {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .search-field {
+    width: 220px;
+    min-width: 0;
+    flex-shrink: 1;
+    border: 1px solid #59ff8875;
+    border-radius: 999px;
+    background: #020703;
+    color: #beffd6;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.86rem;
+    outline: none;
+  }
+
+  .search-field::placeholder {
+    color: #6dff9a88;
+  }
+
+  .search-field:focus {
+    border-color: #8fffb8;
+    box-shadow: 0 0 0 2px #49ff7d26;
+  }
+
   .add-button {
     border: 1px solid #5eff8c96;
     border-radius: 999px;
@@ -205,6 +342,8 @@
     padding: 0.55rem 0.95rem;
     cursor: pointer;
     box-shadow: inset 0 0 10px #3cff7638;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .add-button:hover {

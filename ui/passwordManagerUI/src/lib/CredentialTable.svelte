@@ -170,10 +170,6 @@
     outline: none;
   }
 
-  .input-field.short {
-    min-width: 84px;
-  }
-
   .input-field:focus {
     border-color: #8fffb8;
     box-shadow: 0 0 0 2px #49ff7d26;
