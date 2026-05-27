@@ -1,8 +1,10 @@
-package main
+package db
 
 import (
 	"database/sql"
 	"log"
+	"main/helpers"
+	"main/models"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 )
@@ -23,7 +25,7 @@ func GetDb() (*DB, error) {
 		db,
 	}
 
-	_, err = Db.Exec(createTable())
+	_, err = Db.Exec(createSchema())
 
 	if err != nil {
 		log.Fatal(err)
@@ -32,7 +34,23 @@ func GetDb() (*DB, error) {
 	return &Db, nil
 }
 
-func createTable() string {
+func CreateAndPopulateDB() {
+	credentials := helpers.TransformDataIntoJson()
+
+	db, err := GetDb()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer db.Close()
+
+	for _, credential := range *credentials {
+		db.AddCredential(&credential)
+	}
+}
+
+func createSchema() string {
 	return `CREATE TABLE IF NOT EXISTS Credentials (
 		id INTEGER PRIMARY KEY,
 		domain TEXT,
@@ -41,7 +59,7 @@ func createTable() string {
 	);`
 }
 
-func (db *DB) AddCredential(credential *Credential) {
+func (db *DB) AddCredential(credential *models.Credential) {
 	query := "INSERT INTO Credentials (domain, username, password) VALUES (?,?,?);"
 	_, err := db.Exec(query, credential.Domain, credential.Username, credential.Password)
 
@@ -51,7 +69,7 @@ func (db *DB) AddCredential(credential *Credential) {
 
 }
 
-func (db *DB) GetAllCredentials() []Credential {
+func (db *DB) GetAllCredentials() []models.Credential {
 	query := "SELECT * FROM Credentials;"
 	rows, err := db.Query(query)
 
@@ -59,10 +77,10 @@ func (db *DB) GetAllCredentials() []Credential {
 		log.Fatal(err)
 	}
 
-	c := make([]Credential, 0)
+	c := make([]models.Credential, 0)
 
 	for rows.Next() {
-		var cr Credential
+		var cr models.Credential
 		err := rows.Scan(&cr.Id, &cr.Domain, &cr.Username, &cr.Password)
 
 		if err != nil {
@@ -75,11 +93,11 @@ func (db *DB) GetAllCredentials() []Credential {
 	return c
 }
 
-func (db *DB) GetCredentialById(id int) *Credential {
+func (db *DB) GetCredentialById(id int) *models.Credential {
 	query := "SELECT * FROM Credentials WHERE id = ?;"
 	row := db.QueryRow(query, id)
 
-	var c Credential
+	var c models.Credential
 
 	err := row.Scan(&c.Id, &c.Domain, &c.Username, &c.Password)
 
@@ -90,7 +108,7 @@ func (db *DB) GetCredentialById(id int) *Credential {
 	return &c
 }
 
-func (db *DB) UpdateCredentialById(id int, credential *Credential) error {
+func (db *DB) UpdateCredentialById(id int, credential *models.Credential) error {
 	query := "UPDATE Credentials SET domain = ?, username = ?, password = ? WHERE id = ?;"
 	_, err := db.Exec(query, credential.Domain, credential.Username, credential.Password, id)
 

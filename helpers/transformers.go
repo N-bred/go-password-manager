@@ -1,11 +1,13 @@
-package main
+package helpers
 
 import (
+	"log"
+	"main/models"
 	"os"
 	"strings"
 )
 
-func TransformIntoCredentialStruct() ([]Credential, error) {
+func TransformIntoCredentialStruct() ([]models.Credential, error) {
 	data, err := os.ReadFile("Psx.txt")
 
 	if err != nil {
@@ -16,7 +18,7 @@ func TransformIntoCredentialStruct() ([]Credential, error) {
 
 	counter := 0
 
-	credentials := make([]Credential, 0)
+	credentials := make([]models.Credential, 0)
 
 	for i, line := range contents {
 
@@ -31,7 +33,7 @@ func TransformIntoCredentialStruct() ([]Credential, error) {
 				username = "thehardyboiz1@gmail.com"
 			}
 
-			cred := Credential{
+			cred := models.Credential{
 				Domain:   domain,
 				Username: username,
 				Password: password,
@@ -46,4 +48,16 @@ func TransformIntoCredentialStruct() ([]Credential, error) {
 	}
 
 	return credentials, nil
+}
+
+func TransformDataIntoJson() *[]models.Credential {
+	credentials, err := TransformIntoCredentialStruct()
+
+	if err != nil {
+		log.Fatal("Found not Psx.txt file")
+	}
+
+	EncodeCredentialsToJson("psx.json", &credentials)
+
+	return &credentials
 }
