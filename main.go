@@ -3,19 +3,26 @@ package main
 import (
 	"fmt"
 	"log"
-	"main/db"
+	dbi "main/db"
+	"main/helpers"
 	"main/routes"
 	"net/http"
+	"os"
+	"slices"
 
 	"github.com/rs/cors"
 )
 
 func main() {
-	db, err := db.GetDb()
+
+	db, err := dbi.GetDb()
 
 	if err != nil {
 		log.Fatal(err)
+	}
 
+	if idx := slices.IndexFunc(os.Args, helpers.FindIdx("--populate")); idx != -1 {
+		dbi.CreateAndPopulateDB()
 	}
 
 	mux := http.NewServeMux()
@@ -28,10 +35,12 @@ func main() {
 
 	mux.HandleFunc("/credential/update", routes.UpdateCredentialById(db))
 
+	mux.HandleFunc("/credential-history/{id}", routes.GetCredentialHistoryById(db))
+
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET", "POST", "PUT"},
-		Debug:          true,
+		Debug:          false,
 	})
 
 	handler := c.Handler(mux)

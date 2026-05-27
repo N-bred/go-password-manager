@@ -18,17 +18,10 @@ func GetDb() (*DB, error) {
 
 	if err != nil {
 		return nil, err
-
 	}
 
 	Db := DB{
 		db,
-	}
-
-	_, err = Db.Exec(createSchema())
-
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	return &Db, nil
@@ -44,6 +37,12 @@ func CreateAndPopulateDB() {
 	}
 
 	defer db.Close()
+
+	_, err = db.Exec(createSchema())
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for _, credential := range *credentials {
 		db.AddCredential(&credential)
@@ -63,7 +62,7 @@ func createSchema() string {
 		id INTEGER PRIMARY KEY,
 		credential_id INTEGER NOT NULL,
 		value TEXT NOT NULL,
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (credential_id) REFERENCES Credentials(id)
 	);
 
@@ -72,13 +71,19 @@ func createSchema() string {
 
 func (db *DB) AddCredential(credential *models.Credential) error {
 	query := "INSERT INTO Credentials (domain, username, password) VALUES (?,?,?);"
-	_, err := db.Exec(query, credential.Domain, credential.Username, credential.Password)
+	result, err := db.Exec(query, credential.Domain, credential.Username, credential.Password)
 
 	if err != nil {
 		return err
 	}
 
-	err = db.AddCredentialHistory(credential.Id, credential.Password)
+	id, err := result.LastInsertId()
+
+	if err != nil {
+		return err
+	}
+
+	err = db.AddCredentialHistory(int(id), credential.Password)
 
 	if err != nil {
 		return err
@@ -137,6 +142,34 @@ func (db *DB) GetCredentialById(id int) (*models.Credential, error) {
 	}
 
 	return &c, nil
+}
+
+func (db *DB) GetCredentialHistoryById(id int) (*[]models.CredentialHistory, error) {
+	query := "SELECT * FROM Credentials_History WHERE credential_id = ? ORDER BY created_at DESC;"
+	rows, err := db.Query(query, id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	ch := make([]models.CredentialHistory, 0)
+
+	for rows.Next() {
+		var cr models.CredentialHistory
+		err := rows.Scan(&cr.Id, &cr.Credential_id, &cr.Value, &cr.Created_at)
+
+		if err != nil {
+			return nil, err
+		}
+
+		ch = append(ch, cr)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &ch, nil
 }
 
 func (db *DB) UpdateCredentialById(id int, credential *models.Credential) error {
