@@ -2,7 +2,10 @@ module main
 
 go 1.26.3
 
-require github.com/ncruces/go-sqlite3 v0.34.2
+require (
+	github.com/ncruces/go-sqlite3 v0.34.2
+	github.com/rs/cors v1.11.1
+)
 
 require (
 	github.com/ncruces/go-sqlite3-wasm/v2 v2.4.35301 // indirect

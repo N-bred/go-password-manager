@@ -51,30 +51,61 @@ func CreateAndPopulateDB() {
 }
 
 func createSchema() string {
-	return `CREATE TABLE IF NOT EXISTS Credentials (
+	return `
+	CREATE TABLE IF NOT EXISTS Credentials (
 		id INTEGER PRIMARY KEY,
-		domain TEXT,
-		username TEXT,
-		password TEXT
-	);`
+		domain TEXT NOT NULL,
+		username TEXT NOT NULL,
+		password TEXT NOT NULL
+	);
+	
+	CREATE TABLE IF NOT EXISTS Credentials_History (
+		id INTEGER PRIMARY KEY,
+		credential_id INTEGER NOT NULL,
+		value TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		FOREIGN KEY (credential_id) REFERENCES Credentials(id)
+	);
+
+	`
 }
 
-func (db *DB) AddCredential(credential *models.Credential) {
+func (db *DB) AddCredential(credential *models.Credential) error {
 	query := "INSERT INTO Credentials (domain, username, password) VALUES (?,?,?);"
 	_, err := db.Exec(query, credential.Domain, credential.Username, credential.Password)
 
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	err = db.AddCredentialHistory(credential.Id, credential.Password)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 
 }
 
-func (db *DB) GetAllCredentials() []models.Credential {
+func (db *DB) AddCredentialHistory(id int, password string) error {
+	query := "INSERT INTO Credentials_History (credential_id, value) VALUES (?,?);"
+	_, err := db.Exec(query, id, password)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (db *DB) GetAllCredentials() ([]models.Credential, error) {
 	query := "SELECT * FROM Credentials;"
 	rows, err := db.Query(query)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	c := make([]models.Credential, 0)
@@ -84,16 +115,16 @@ func (db *DB) GetAllCredentials() []models.Credential {
 		err := rows.Scan(&cr.Id, &cr.Domain, &cr.Username, &cr.Password)
 
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		c = append(c, cr)
 	}
 
-	return c
+	return c, nil
 }
 
-func (db *DB) GetCredentialById(id int) *models.Credential {
+func (db *DB) GetCredentialById(id int) (*models.Credential, error) {
 	query := "SELECT * FROM Credentials WHERE id = ?;"
 	row := db.QueryRow(query, id)
 
@@ -102,18 +133,24 @@ func (db *DB) GetCredentialById(id int) *models.Credential {
 	err := row.Scan(&c.Id, &c.Domain, &c.Username, &c.Password)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return &c
+	return &c, nil
 }
 
 func (db *DB) UpdateCredentialById(id int, credential *models.Credential) error {
-	query := "UPDATE Credentials SET domain = ?, username = ?, password = ? WHERE id = ?;"
-	_, err := db.Exec(query, credential.Domain, credential.Username, credential.Password, id)
+	err := db.AddCredentialHistory(credential.Id, credential.Password)
 
 	if err != nil {
-		log.Fatal(err)
+		return err
+	}
+
+	query2 := "UPDATE Credentials SET domain = ?, username = ?, password = ? WHERE id = ?;"
+	_, err = db.Exec(query2, credential.Domain, credential.Username, credential.Password, id)
+
+	if err != nil {
+		return err
 	}
 
 	return nil

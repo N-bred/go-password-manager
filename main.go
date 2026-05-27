@@ -6,6 +6,8 @@ import (
 	"main/db"
 	"main/routes"
 	"net/http"
+
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -16,13 +18,27 @@ func main() {
 
 	}
 
-	http.HandleFunc("/credentials/", routes.GetAllCredentials(db))
+	mux := http.NewServeMux()
 
-	http.HandleFunc("/credential/{id}", routes.GetCredentialById(db))
+	mux.HandleFunc("/credentials/", routes.GetAllCredentials(db))
+
+	mux.HandleFunc("/credential/{id}", routes.GetCredentialById(db))
+
+	mux.HandleFunc("/credential/create", routes.CreateCredential(db))
+
+	mux.HandleFunc("/credential/update", routes.UpdateCredentialById(db))
+
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT"},
+		Debug:          true,
+	})
+
+	handler := c.Handler(mux)
 
 	fmt.Println("Listening on PORT: 3000")
 
-	if err := http.ListenAndServe("127.0.0.1:3000", nil); err != nil {
+	if err := http.ListenAndServe("127.0.0.1:3000", handler); err != nil {
 		panic(err)
 	}
 
