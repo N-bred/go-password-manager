@@ -1,17 +1,23 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"log"
 	dbi "main/db"
 	"main/helpers"
+	"main/models"
 	"main/routes"
 	"net/http"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/rs/cors"
 )
+
+//go:embed ui/dist/index.html
+var html string
 
 func main() {
 
@@ -21,11 +27,31 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if idx := slices.IndexFunc(os.Args, helpers.FindIdx("--populate")); idx != -1 {
-		dbi.CreateAndPopulateDB()
+	defer db.Close()
+
+	if idx := slices.IndexFunc(os.Args, helpers.FindIdx("--source")); idx != -1 {
+
+		filename := os.Args[idx+1]
+
+		var credentials []models.Credential
+
+		if strings.Contains(filename, ".txt") {
+			credentials = *helpers.TransformDataIntoJson(filename)
+		} else if strings.Contains(filename, ".json") {
+			credentials = *helpers.TransformJsonIntoData(filename)
+		} else {
+			log.Fatal("Passed an unsupported file source")
+		}
+
+		dbi.CreateAndPopulateDB(&credentials)
 	}
 
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(html))
+	})
 
 	mux.HandleFunc("/credentials/", routes.GetAllCredentials(db))
 

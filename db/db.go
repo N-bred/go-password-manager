@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"log"
-	"main/helpers"
 	"main/models"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
@@ -27,8 +26,7 @@ func GetDb() (*DB, error) {
 	return &Db, nil
 }
 
-func CreateAndPopulateDB() {
-	credentials := helpers.TransformDataIntoJson()
+func CreateAndPopulateDB(credentials *[]models.Credential) {
 
 	db, err := GetDb()
 
@@ -163,10 +161,6 @@ func (db *DB) GetCredentialHistoryById(id int) (*[]models.CredentialHistory, err
 		}
 
 		ch = append(ch, cr)
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	return &ch, nil

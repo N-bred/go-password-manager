@@ -1,6 +1,8 @@
 *.db
 psx.json
+p.json
 Psx.txt
+p.txt
 main
 main.exe
 dist
