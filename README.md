@@ -136,7 +136,3 @@ password_manager/
 
 - After UI changes: `cd ui && pnpm build`, then restart the Go process.
 - UI development with hot reload: run `go run .` and `cd ui && pnpm dev` (see [ui/README.md](ui/README.md) for how the dev server relates to the API).
-
-## License
-
-Add a license file here if you plan to publish or share the project.
