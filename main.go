@@ -10,18 +10,42 @@ import (
 	"main/routes"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/rs/cors"
 )
 
+func getAbsPath() string {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return dir
+}
+
 //go:embed ui/dist/index.html
 var html string
 
 func main() {
+	print(os.Args[1])
+	files, err := os.ReadDir(os.Args[1])
 
-	db, err := dbi.GetDb()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, file := range files {
+		fmt.Printf("%v", file)
+	}
+}
+
+func a() {
+
+	db, err := dbi.CreateDB(filepath.Join(getAbsPath(), "db.db"))
 
 	if err != nil {
 		log.Fatal(err)
@@ -43,7 +67,7 @@ func main() {
 			log.Fatal("Passed an unsupported file source")
 		}
 
-		dbi.CreateAndPopulateDB(&credentials)
+		db.PopulateDB(&credentials)
 	}
 
 	mux := http.NewServeMux()

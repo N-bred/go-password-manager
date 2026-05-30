@@ -12,8 +12,9 @@ type DB struct {
 	*sql.DB
 }
 
-func GetDb() (*DB, error) {
-	db, err := sql.Open("sqlite3", "db.db")
+func CreateDB(path string) (*DB, error) {
+
+	db, err := sql.Open("sqlite3", path)
 
 	if err != nil {
 		return nil, err
@@ -26,17 +27,9 @@ func GetDb() (*DB, error) {
 	return &Db, nil
 }
 
-func CreateAndPopulateDB(credentials *[]models.Credential) {
+func (db *DB) PopulateDB(credentials *[]models.Credential) {
 
-	db, err := GetDb()
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer db.Close()
-
-	_, err = db.Exec(createSchema())
+	_, err := db.Exec(createSchema())
 
 	if err != nil {
 		log.Fatal(err)
